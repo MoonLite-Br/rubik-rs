@@ -1,0 +1,83 @@
+name: android-apk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: >
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
+            ndk;26.3.11579264
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Host tests (cube engine, fonts, renderer)
+        run: cargo test --lib --tests
+
+      - name: Install cargo-apk
+        run: cargo install cargo-apk --locked
+
+      - name: Select NDK and prepare env
+        run: |
+          set -e
+          NDK_DIR=""
+          for v in 26.3.11579264 25.2.9519653 27.2.12479018; do
+            for base in "${ANDROID_HOME}/ndk" "/usr/local/lib/android/sdk/ndk"; do
+              if [ -d "$base/$v" ]; then NDK_DIR="$base/$v"; break 2; fi
+            done
+          done
+          if [ -z "$NDK_DIR" ]; then
+            NDK_DIR=$(ls -d /usr/local/lib/android/sdk/ndk/* 2>/dev/null | sort -V | head -1)
+          fi
+          echo "NDK_DIR=$NDK_DIR"
+          test -d "$NDK_DIR"
+          {
+            echo "ANDROID_HOME=$ANDROID_HOME"
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
+            echo "ANDROID_NDK_ROOT=$NDK_DIR"
+            echo "ANDROID_NDK_HOME=$NDK_DIR"
+            echo "NDK_HOME=$NDK_DIR"
+          } >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        run: |
+          set -e
+          keytool -genkey -v -keystore "$RUNNER_TEMP/rubik.jks" -alias rubik -keyalg RSA -keysize 2048 \
+                  -validity 10000 -storepass android -keypass android -dname "CN=Rubik"
+          export CARGO_APK_RELEASE_KEYSTORE="$RUNNER_TEMP/rubik.jks"
+          export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android
+          cargo apk build --release
+          echo "=== APKs ==="
+          find target -name '*.apk' -ls
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rubik-apk
+          path: |
+            target/**/*.apk
+            **/*.apk
+          if-no-files-found: error
+          retention-days: 30

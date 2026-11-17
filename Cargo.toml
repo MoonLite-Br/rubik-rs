@@ -1,0 +1,47 @@
+[package]
+name = "rubik"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Learn to solve the Rubik's cube - pure Rust, software-rendered Android app"
+license = "MIT"
+publish = false
+
+[lib]
+name = "rubik"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+fontdue = "0.9"          # pure-Rust TTF rasteriser (the only non-platform dependency)
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = { version = "0.6", features = ["native-activity"] }
+ndk = { version = "0.9", default-features = false }
+ndk-sys = "0.6"
+
+[profile.release]
+opt-level = "z"          # smallest binary. If animation feels heavy on a low-end phone, try "s" or 3.
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+
+# ---------------------------------------------------------------- cargo-apk
+[package.metadata.android]
+package = "dev.rubik.learn"
+apk_name = "Rubik"
+build_targets = ["aarch64-linux-android"]   # add "armv7-linux-androideabi" for old 32-bit phones
+
+[package.metadata.android.sdk]
+min_sdk_version = 24
+target_sdk_version = 34
+
+[package.metadata.android.application]
+label = "Rubik"
+theme = "@android:style/Theme.DeviceDefault.NoActionBar"
+
+[package.metadata.android.application.activity]
+orientation = "portrait"
+# Handle dark-mode / language / font-scale changes ourselves instead of recreating the activity.
+config_changes = "orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize|uiMode|locale|layoutDirection|density|fontScale"

@@ -29,7 +29,7 @@ từ đó sinh ra cả hoán vị 54 sticker lẫn hoạt ảnh 3D nên hai th�
 
 ```bash
 cargo test                          # trên máy tính / Termux (không cần NDK)
-cargo run --example preview         # xuất preview-*.ppm
+cargo run --manifest-path /dev/null 2>/dev/null; rustc tools/preview.rs  # see tools/preview.rs         # xuất preview-*.ppm
 # APK (cần Android SDK + NDK, hoặc dùng GitHub Actions có sẵn trong .github/workflows/android.yml)
 rustup target add aarch64-linux-android
 cargo install cargo-apk --locked
